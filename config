@@ -1,0 +1,37 @@
+# Installation directories
+
+# Default prefix
+PREFIX ?= /usr
+
+# Lua version and dirs
+LUA_SYS_VER ?= 5.2
+LUA_INCLUDE_DIR ?= -I/usr/local/include
+
+# OS dependent
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin) # MacOS
+    LIB_OPTION ?= -bundle -undefined dynamic_lookup -mmacosx-version-min=10.3
+else # Linux/BSD
+    LIB_OPTION ?= -shared
+endif
+
+# - Oracle OCI8
+DRIVER_LIBS ?= -L${ORACLE_HOME} -lz -lclntsh -lpthread
+DRIVER_INCS ?= -I${ORACLE_HOME}/rdbms/demo \
+               -I${ORACLE_HOME}/rdbms/public \
+               -I${ORACLE_HOME}/sdk/include
+
+ifdef WITH_INT64
+    INT64_DIR  ?= $(HOME)/lua_int64
+    CFLAGS     += -D_WITH_INT64=1 -I$(WITH_INT64)
+    LIB_OPTION += -L$(WITH_INT64) -llua_int64
+endif
+
+# general compilation parameters
+WARN = -Wall -Wmissing-prototypes -Wmissing-declarations -pedantic
+INCS = -I$(LUA_INCLUDE_DIR)
+DEFS =
+CFLAGS += -O3 -g -std=gnu99 $(WARN) -fPIC $(DRIVER_INCS) $(INCS) \
+          -DLUAOCI_VERSION_NUMBER='"$V"' $(DEFS) -Wno-int-to-pointer-cast
+CC= gcc
+TARGET=oci8.so
