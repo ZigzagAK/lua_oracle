@@ -1004,10 +1004,11 @@ env_connect (lua_State *L) {
     const char *username = luaL_checkstring(L, 3);
     const char *password = luaL_checkstring(L, 4);
 
-    if (lua_gettop (L) > 4 && lua_istable (L, 1)) {
-        lua_getfield (L, 1, "utf8");
+    if (lua_gettop (L) > 4 && lua_istable (L, 5)) {
+        lua_getfield (L, 5, "utf8");
         if (lua_isboolean (L, -1)) {
             utf8 = lua_toboolean (L, -1);
+            lua_pop (L, 1);
         }
     }
 
@@ -1127,10 +1128,11 @@ env_connect_async (lua_State *L) {
     const char *username = luaL_checkstring(L, 3);
     const char *password = luaL_checkstring(L, 4);
 
-    if (lua_gettop (L) > 4 && lua_istable (L, 1)) {
-        lua_getfield (L, 1, "utf8");
+    if (lua_gettop (L) > 4 && lua_istable (L, 5)) {
+        lua_getfield (L, 5, "utf8");
         if (lua_isboolean (L, -1)) {
             utf8 = lua_toboolean(L, -1);
+            lua_pop (L, 1);
         }
     }
 
