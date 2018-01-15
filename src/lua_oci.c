@@ -239,6 +239,11 @@ alloc_column_buffer (lua_State *L, cur_data *cur, int i) {
                 cur->errhp, (ub4)i, col->val.text, col->max+1,
                 SQLT_STR /*col->type*/, (dvoid *)&(col->null), (ub2 *)0,
                 (ub2 *)0, (ub4) OCI_DEFAULT), cur->errhp);
+            {
+                static ub2 UTF8 = 871; // SELECT NLS_CHARSET_ID('UTF8') FROM DUAL;
+                ASSERT_OCI (L, OCIAttrSet( (dvoid *)col->define,
+                    (ub4)OCI_HTYPE_DEFINE, (void *)&UTF8, (ub4)0, (ub4)OCI_ATTR_CHARSET_ID, cur->errhp), cur->errhp);
+            }
             break;
 
         case SQLT_FLT:
