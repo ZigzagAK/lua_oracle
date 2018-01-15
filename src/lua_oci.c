@@ -42,6 +42,7 @@ typedef struct {
     int             conn_counter;
     OCIEnv         *envhp;
     OCIError       *errhp;
+    int             utf8;
     pthread_mutex_t mtx;
 } env_data;
 
@@ -108,7 +109,7 @@ ASSERT_OCI (lua_State *L, sword status, OCIError *errhp) {
             return 0;
 
         case OCI_SUCCESS_WITH_INFO:
-        	return 0;
+            return 0;
 
         case OCI_NEED_DATA:
             return luaL_error (L, LUASQL_PREFIX"OCI_NEED_DATA");
@@ -239,8 +240,9 @@ alloc_column_buffer (lua_State *L, cur_data *cur, int i) {
                 cur->errhp, (ub4)i, col->val.text, col->max+1,
                 SQLT_STR /*col->type*/, (dvoid *)&(col->null), (ub2 *)0,
                 (ub2 *)0, (ub4) OCI_DEFAULT), cur->errhp);
-            {
-                static ub2 UTF8 = 871; // SELECT NLS_CHARSET_ID('UTF8') FROM DUAL;
+            if (cur->conn->env->utf8) {
+                /* SELECT NLS_CHARSET_ID('UTF8') FROM DUAL; */
+                static ub2 UTF8 = 871;
                 ASSERT_OCI (L, OCIAttrSet( (dvoid *)col->define,
                     (ub4)OCI_HTYPE_DEFINE, (void *)&UTF8, (ub4)0, (ub4)OCI_ATTR_CHARSET_ID, cur->errhp), cur->errhp);
             }
@@ -416,7 +418,7 @@ pushvalue (lua_State *L, cur_data *cur, int i) {
         case SQLT_VNU:
             ASSERT_OCI (L, OCINumberToReal(cur->errhp, &col->val.ociNumber, sizeof(double), &col->val.dbl), cur->errhp);
             lua_pushnumber(L, col->val.dbl);
-        	break;
+            break;
 
 #endif
 
@@ -995,17 +997,17 @@ conn_setautocommit (lua_State *L) {
 */
 static int
 env_connect (lua_State *L) {
-	env_data *env = getenvironment (L);
+    env_data *env = getenvironment (L);
 
     const char *sourcename = luaL_checkstring(L, 2);
     const char *username = luaL_checkstring(L, 3);
     const char *password = luaL_checkstring(L, 4);
 
-	/* Alloc connection object */
-	conn_data *conn = (conn_data *)lua_newuserdata(L, sizeof(conn_data));
+    /* Alloc connection object */
+    conn_data *conn = (conn_data *)lua_newuserdata(L, sizeof(conn_data));
 
-	/* fill in structure */
-	luasql_setmeta (L, LUASQL_CONNECTION_OCI8);
+    /* fill in structure */
+    luasql_setmeta (L, LUASQL_CONNECTION_OCI8);
     conn->env = env;
     conn->connecting = 0;
     conn->closed = 1;
@@ -1020,20 +1022,20 @@ env_connect (lua_State *L) {
     strncpy(conn->username, username, sizeof(conn->username));
     strncpy(conn->password, password, sizeof(conn->password));
 
-	/* error handler */
-	ASSERT_OCI (L, OCIHandleAlloc((dvoid *) env->envhp,
-		(dvoid **) &(conn->errhp),
-		(ub4) OCI_HTYPE_ERROR, (size_t) 0, (dvoid **) 0), env->errhp);
-	/* login */
-	ASSERT_OCI (L, OCILogon(env->envhp, conn->errhp, &(conn->svchp),
-		(CONST text*) username, strlen(username),
-		(CONST text*) password, strlen(password),
-		(CONST text*) sourcename, strlen(sourcename)), conn->errhp);
+    /* error handler */
+    ASSERT_OCI (L, OCIHandleAlloc((dvoid *) env->envhp,
+        (dvoid **) &(conn->errhp),
+        (ub4) OCI_HTYPE_ERROR, (size_t) 0, (dvoid **) 0), env->errhp);
+    /* login */
+    ASSERT_OCI (L, OCILogon(env->envhp, conn->errhp, &(conn->svchp),
+        (CONST text*) username, strlen(username),
+        (CONST text*) password, strlen(password),
+        (CONST text*) sourcename, strlen(sourcename)), conn->errhp);
 
-	conn->closed = 0;
-	env->conn_counter++;
+    conn->closed = 0;
+    env->conn_counter++;
 
-	return 1;
+    return 1;
 }
 
 
@@ -1209,10 +1211,18 @@ create_environment (lua_State *L) {
     luasql_setmeta (L, LUASQL_ENVIRONMENT_OCI8);
 
     /* fill in structure */
+    env->utf8 = 0;
     env->closed = 0;
     env->conn_counter = 0;
     env->envhp = NULL;
     env->errhp = NULL;
+
+    if (lua_gettop (L) > 0 && lua_istable (L, 1)) {
+        lua_getfield (L, 1, "utf8");
+        if (lua_isboolean (L, -1)) {
+            env->utf8 = lua_toboolean(L, -1);
+        }
+    }
 
     if (OCIEnvCreate ( &(env->envhp), (ub4)OCI_THREADED, (dvoid *)0,
             (dvoid * (*)(dvoid *, size_t)) 0,
