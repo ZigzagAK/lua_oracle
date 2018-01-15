@@ -42,7 +42,6 @@ typedef struct {
     int             conn_counter;
     OCIEnv         *envhp;
     OCIError       *errhp;
-    int             utf8;
     pthread_mutex_t mtx;
 } env_data;
 
@@ -61,6 +60,7 @@ typedef struct {
     char          username[256];
     char          password[256];
     char          sourcename[256];
+    int           utf8;
 } conn_data;
 
 
@@ -240,7 +240,7 @@ alloc_column_buffer (lua_State *L, cur_data *cur, int i) {
                 cur->errhp, (ub4)i, col->val.text, col->max+1,
                 SQLT_STR /*col->type*/, (dvoid *)&(col->null), (ub2 *)0,
                 (ub2 *)0, (ub4) OCI_DEFAULT), cur->errhp);
-            if (cur->conn->env->utf8) {
+            if (cur->conn->utf8) {
                 /* SELECT NLS_CHARSET_ID('UTF8') FROM DUAL; */
                 static ub2 UTF8 = 871;
                 ASSERT_OCI (L, OCIAttrSet( (dvoid *)col->define,
@@ -998,10 +998,18 @@ conn_setautocommit (lua_State *L) {
 static int
 env_connect (lua_State *L) {
     env_data *env = getenvironment (L);
+    int utf8 = 0;
 
     const char *sourcename = luaL_checkstring(L, 2);
     const char *username = luaL_checkstring(L, 3);
     const char *password = luaL_checkstring(L, 4);
+
+    if (lua_gettop (L) > 4 && lua_istable (L, 1)) {
+        lua_getfield (L, 1, "utf8");
+        if (lua_isboolean (L, -1)) {
+            utf8 = lua_toboolean (L, -1);
+        }
+    }
 
     /* Alloc connection object */
     conn_data *conn = (conn_data *)lua_newuserdata(L, sizeof(conn_data));
@@ -1009,6 +1017,7 @@ env_connect (lua_State *L) {
     /* fill in structure */
     luasql_setmeta (L, LUASQL_CONNECTION_OCI8);
     conn->env = env;
+    conn->utf8 = utf8;
     conn->connecting = 0;
     conn->closed = 1;
     conn->auto_commit = 0;
@@ -1112,10 +1121,18 @@ async_open (void *p) {
 static int
 env_connect_async (lua_State *L) {
     env_data *env = getenvironment (L);
+    int utf8 = 0;
 
     const char *sourcename = luaL_checkstring(L, 2);
     const char *username = luaL_checkstring(L, 3);
     const char *password = luaL_checkstring(L, 4);
+
+    if (lua_gettop (L) > 4 && lua_istable (L, 1)) {
+        lua_getfield (L, 1, "utf8");
+        if (lua_isboolean (L, -1)) {
+            utf8 = lua_toboolean(L, -1);
+        }
+    }
 
     sword status;
 
@@ -1133,6 +1150,7 @@ env_connect_async (lua_State *L) {
         /* fill in structure */
         luasql_setmeta (L, LUASQL_CONNECTION_OCI8);
         conn->env = env;
+        conn->utf8 = utf8;
         conn->connecting = 1;
         conn->closed = 1;
         conn->auto_commit = 0;
@@ -1211,18 +1229,10 @@ create_environment (lua_State *L) {
     luasql_setmeta (L, LUASQL_ENVIRONMENT_OCI8);
 
     /* fill in structure */
-    env->utf8 = 0;
     env->closed = 0;
     env->conn_counter = 0;
     env->envhp = NULL;
     env->errhp = NULL;
-
-    if (lua_gettop (L) > 0 && lua_istable (L, 1)) {
-        lua_getfield (L, 1, "utf8");
-        if (lua_isboolean (L, -1)) {
-            env->utf8 = lua_toboolean(L, -1);
-        }
-    }
 
     if (OCIEnvCreate ( &(env->envhp), (ub4)OCI_THREADED, (dvoid *)0,
             (dvoid * (*)(dvoid *, size_t)) 0,
