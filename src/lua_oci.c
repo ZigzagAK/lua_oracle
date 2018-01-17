@@ -1228,6 +1228,7 @@ env_close (lua_State *L) {
 static int
 create_environment (lua_State *L) {
     env_data *env = (env_data *)lua_newuserdata(L, sizeof(env_data));
+    sword status;
     luasql_setmeta (L, LUASQL_ENVIRONMENT_OCI8);
 
     /* fill in structure */
@@ -1236,13 +1237,13 @@ create_environment (lua_State *L) {
     env->envhp = NULL;
     env->errhp = NULL;
 
-    if (OCIEnvCreate ( &(env->envhp), (ub4)OCI_THREADED, (dvoid *)0,
+    if (status = OCIEnvCreate ( &(env->envhp), (ub4)OCI_THREADED, (dvoid *)0,
             (dvoid * (*)(dvoid *, size_t)) 0,
             (dvoid * (*)(dvoid *, dvoid *, size_t)) 0,
             (void (*)(dvoid *, dvoid *)) 0,
             (size_t) 0,
             (dvoid **) 0))
-        return luaL_error (L, LUASQL_PREFIX"couldn't create environment");
+        return luaL_error (L, LUASQL_PREFIX"couldn't create environment, code=%d", status);
 
     /* error handler */
     ASSERT_OCI (L, OCIHandleAlloc((dvoid *) env->envhp,
