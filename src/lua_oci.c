@@ -1301,6 +1301,9 @@ create_metatables (lua_State *L) {
 
 static void
 inject_consts(lua_State *L) {
+    lua_getglobal(L, "package");
+    lua_getfield(L, -1, "loaded");
+
     lua_createtable(L, 0 /* narr */, 3 /* nrec */);    /* oci.* */
 
     lua_pushinteger(L, OCI_SUCCESS);
@@ -1312,13 +1315,9 @@ inject_consts(lua_State *L) {
     lua_pushinteger(L, OCI_STILL_EXECUTING);
     lua_setfield(L, -2, "OCI_STILL_EXECUTING");
 
-    lua_getglobal(L, "package");
-    lua_getfield(L, -1, "loaded");
-    lua_pushvalue(L, -3);
     lua_setfield(L, -2, "oci");
-    lua_pop(L, 2);
 
-    lua_setglobal(L, "oci");
+    lua_pop(L, 2);
 }
 
 
