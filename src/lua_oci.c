@@ -876,7 +876,7 @@ conn_execute (lua_State *L) {
     conn_data *conn = getconnection (L);
     const char *statement = luaL_checkstring (L, 2);
     sword status;
-    ub4 prefetch = 0;
+    ub4 prefetch = 500;
     ub4 iters;
     ub4 mode;
     ub2 type;
